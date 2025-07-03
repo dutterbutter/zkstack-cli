@@ -27,11 +27,11 @@ zkstack_cli_types = { version = "0.1.2", path = "crates/types" }
 zkstack_cli_git_version_macro = { version = "0.1.2", path = "crates/git_version_macro" }
 
 # ZkSync deps
-zksync_basic_types = { path = "../core/lib/basic_types" }
-zksync_system_constants = { path = "../core/lib/constants" }
-zksync_types = { path = "../core/lib/types" }
-zksync_web3_decl = { path = "../core/lib/web3_decl" }
-zksync_contracts = { path = "../core/lib/contracts" }
+zksync_contracts = { git = "https://github.com/matter-labs/zksync-era", rev = "core-v28.6.0" }
+zksync_basic_types = { git = "https://github.com/matter-labs/zksync-era", rev = "core-v28.6.0" }
+zksync_types = { git = "https://github.com/matter-labs/zksync-era", rev = "core-v28.6.0" }
+zksync_web3_decl = { git = "https://github.com/matter-labs/zksync-era", rev = "core-v28.6.0" }
+zksync_system_constants = { git = "https://github.com/matter-labs/zksync-era", rev = "core-v28.6.0"}
 zksync_consensus_roles = "=0.13"
 zksync_consensus_crypto = "=0.13"
 
