@@ -23,32 +23,40 @@ jobs:
           token: ${{ secrets.PAT_PUSH }}
           fetch-depth: 0
 
-      # 2. Fetch upstream repo
       - name: Fetch upstream source
         run: |
-          git clone --depth 1 https://github.com/${UPSTREAM_REPO}.git upstream-src
+          # clone to a throw-away dir that lives outside the mirror repo
+          UPSTREAM_DIR=$(mktemp -d)
+          git clone --depth 1 https://github.com/${UPSTREAM_REPO}.git "$UPSTREAM_DIR"
 
-      # 3. Create a sync branch
-      - name: Prepare sync branch
+      - name: Prepare sync branch (clone & rsync)
         run: |
           BRANCH=sync/upstream-$(date -u +%Y%m%d)
           git switch -c "$BRANCH" || git switch "$BRANCH"
-          # wipe current work tree (but keep .git)
-          git rm -rf .
-          # copy CLI crate into repo root
-          rsync -a --delete --exclude '.git' upstream-src/${SUBDIR}/ .
-          # remove any stray Cargo.lock created by rsync of parent dirs
+
+          TMP=$(mktemp -d)
+          git clone --depth 1 https://github.com/${UPSTREAM_REPO}.git "$TMP"
+
+          # keep workflows
+          git rm -rf --ignore-unmatch \
+              $(ls -A | grep -v '^\.git$' | grep -v '^\.github$')
+
+          rsync -a --delete --exclude '.git' \
+                "$TMP/${SUBDIR}/" ./
+          rm -rf "$TMP"
           rm -f Cargo.lock
+
 
       # 4. Commit if there are changes
       - name: Commit changes (if any)
         id: commit
         run: |
-          if ! git diff --quiet; then
-            git add .
+          git add -A
+          if [ -n "$(git status --porcelain)" ]; then
             git commit -m "chore: sync upstream CLI $(date -Iseconds)"
             git push -u origin HEAD
             echo "committed=true" >> "$GITHUB_OUTPUT"
+            echo "branch=$(git rev-parse --abbrev-ref HEAD)" >> "$GITHUB_OUTPUT"
           else
             echo "No upstream changes"
           fi
@@ -58,15 +66,17 @@ jobs:
           GIT_COMMITTER_NAME: mirror-bot
           GIT_COMMITTER_EMAIL: mirror-bot@example.com
 
+
       # 5. Open or update PR
       - name: Create / update PR
         if: steps.commit.outputs.committed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.PAT_PUSH }}
-          branch: ${{ github.ref_name }}
-          title: "Sync upstream ZKstack CLI"
-          body: |
+          branch: ${{ steps.commit.outputs.branch }}
+          title:  "Sync upstream ZKstack CLI"
+          body:   |
             Automated copy of `${{ env.SUBDIR }}` from `${{ env.UPSTREAM_REPO }}`.
             Review, then **Squash & Merge** to refresh the mirror.
           draft: false
+
