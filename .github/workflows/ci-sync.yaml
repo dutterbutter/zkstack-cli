@@ -34,16 +34,13 @@ jobs:
           BRANCH=sync/upstream-$(date -u +%Y%m%d)
           git switch -c "$BRANCH" || git switch "$BRANCH"
 
-          TMP=$(mktemp -d)
-          git clone --depth 1 https://github.com/${UPSTREAM_REPO}.git "$TMP"
-
           # keep workflows
           git rm -rf --ignore-unmatch \
               $(ls -A | grep -v '^\.git$' | grep -v '^\.github$')
 
-          rsync -a --delete --exclude '.git' \
-                "$TMP/${SUBDIR}/" ./
-          rm -rf "$TMP"
+          rsync -a --delete --exclude '.git' --exclude '.github' \
+                "$UPSTREAM_DIR/${SUBDIR}/" ./
+          rm -rf "$UPSTREAM_DIR"
           rm -f Cargo.lock
 
 
@@ -72,11 +69,13 @@ jobs:
         if: steps.commit.outputs.committed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.PAT_PUSH }}
+          token:  ${{ secrets.PAT_PUSH }}
           branch: ${{ steps.commit.outputs.branch }}
+          base:   main
           title:  "Sync upstream ZKstack CLI"
-          body:   |
+          body: |
             Automated copy of `${{ env.SUBDIR }}` from `${{ env.UPSTREAM_REPO }}`.
             Review, then **Squash & Merge** to refresh the mirror.
           draft: false
+
 
