@@ -1,125 +1,72 @@
-name: Release zkstack bins
+name: Sync upstream ZKstack CLI
 
 on:
-  workflow_call:
-    inputs:
-      tag:
-        type: string
-        description: 'The tag to use for the Docker image.'
-        required: true
+  schedule:
+    - cron: "23 3 * * *"
   workflow_dispatch:
-    inputs:
-      prerelease_name:
-        description: "Suffix to use for manual pre-release."
-        required: false
-        type: string
-        default: "prerelease-test"
 
-defaults:
-  run:
-    shell: 'bash -ex {0}'
-    working-directory: zkstack_cli
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
-
-  build:
-    name: Build binaries
-    strategy:
-      matrix:
-        include:
-          - arch: x86_64-unknown-linux-gnu
-            platform: matterlabs-ci-runner-highmem-long
-          - arch: aarch64-unknown-linux-gnu
-            platform: matterlabs-ci-runner-arm
-          - arch: x86_64-apple-darwin
-            platform: macos-latest-large
-          - arch: aarch64-apple-darwin
-            platform: macos-latest-xlarge
-
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-        with:
-          ref: ${{ inputs.tag || '' }}
-
-      - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@9399c7bb15d4c7d47b27263d024f0a4978346ba4 # v1
-        with:
-          toolchain: nightly-2024-09-01
-          rustflags: ""
-
-      - name: Install target
-        run: rustup target add ${{ matrix.arch }}
-
-      - name: Build zkstack
-        run: |
-          if [[ "${{ matrix.arch }}" == *"linux"* ]]; then
-            export RUSTFLAGS='-C target-feature=+crt-static'
-            export OPENSSL_STATIC=1
-          fi
-          cargo build --bin zkstack --target ${{ matrix.arch }} --release
-
-      - name: Pack zkstack
-        run: |
-          tar -C ./target/${{ matrix.arch }}/release -czf \
-            zkstack-${{ inputs.tag || inputs.prerelease_name }}-${{ matrix.arch }}.tar.gz \
-            zkstack
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: zkstack-${{ matrix.arch }}
-          path: |
-            ./zkstack_cli/zkstack-${{ inputs.tag || inputs.prerelease_name }}-${{ matrix.arch }}.tar.gz
-            ./zkstack_cli/target/${{ matrix.arch }}/release/zkstack
-
-
-  upload-binaries:
-    name: Upload binaries
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    needs: build
+  sync:
     runs-on: ubuntu-latest
+    env:
+      UPSTREAM_REPO: matter-labs/zksync-era
+      SUBDIR: zkstack_cli
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      # 1. Clone mirror
+      - name: Checkout mirror
+        uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || '' }}
+          token: ${{ secrets.PAT_PUSH }}
+          fetch-depth: 0
 
-      - name: Define release name
-        id: release_tag
-        shell: 'bash -ex {0}'
+      # 2. Fetch upstream repo
+      - name: Fetch upstream source
         run: |
-          [ ! -z "${{ inputs.tag }}" ] && TAG="${{ inputs.tag }}" \
-            || TAG="$(git rev-parse --short HEAD)"
-          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+          git clone --depth 1 https://github.com/${UPSTREAM_REPO}.git upstream-src
 
-      - name: Download artifacts
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4
-        with:
-          pattern: "zkstack-*"
-          path: artifacts
+      # 3. Create a sync branch
+      - name: Prepare sync branch
+        run: |
+          BRANCH=sync/upstream-$(date -u +%Y%m%d)
+          git switch -c "$BRANCH" || git switch "$BRANCH"
+          # wipe current work tree (but keep .git)
+          git rm -rf .
+          # copy CLI crate into repo root
+          rsync -a --delete --exclude '.git' upstream-src/${SUBDIR}/ .
+          # remove any stray Cargo.lock created by rsync of parent dirs
+          rm -f Cargo.lock
 
-      - name: Binaries attestation
-        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2
-        with:
-          subject-path: 'artifacts/**/zkstack'
+      # 4. Commit if there are changes
+      - name: Commit changes (if any)
+        id: commit
+        run: |
+          if ! git diff --quiet; then
+            git add .
+            git commit -m "chore: sync upstream CLI $(date -Iseconds)"
+            git push -u origin HEAD
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No upstream changes"
+          fi
+        env:
+          GIT_AUTHOR_NAME: mirror-bot
+          GIT_AUTHOR_EMAIL: mirror-bot@example.com
+          GIT_COMMITTER_NAME: mirror-bot
+          GIT_COMMITTER_EMAIL: mirror-bot@example.com
 
-      - name: Update release artifacts
-        if: ${{ inputs.tag != '' }}
-        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2
+      # 5. Open or update PR
+      - name: Create / update PR
+        if: steps.commit.outputs.committed == 'true'
+        uses: peter-evans/create-pull-request@v6
         with:
-          tag_name: ${{ inputs.tag }}
-          files: 'artifacts/**/zkstack*.tar.gz'
-
-      - name: Create release
-        if: ${{ inputs.prerelease_name != '' }}
-        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda # v2
-        with:
-          name: 'zkstack ${{ inputs.prerelease_name }} ${{ steps.release_tag.outputs.tag }}'
-          tag_name: ${{ steps.release_tag.outputs.tag }}
-          prerelease: true
-          files: 'artifacts/**/zkstack*.tar.gz'
+          token: ${{ secrets.PAT_PUSH }}
+          branch: ${{ github.ref_name }}
+          title: "Sync upstream ZKstack CLI"
+          body: |
+            Automated copy of `${{ env.SUBDIR }}` from `${{ env.UPSTREAM_REPO }}`.
+            Review, then **Squash & Merge** to refresh the mirror.
+          draft: false
