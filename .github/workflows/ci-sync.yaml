@@ -46,7 +46,7 @@ jobs:
           git add -A
           if [ -n "$(git status --porcelain)" ]; then
             git commit -m "chore: sync upstream CLI $(date -Iseconds)"
-            git push -u origin HEAD
+            git push -u origin HEAD --force-with-lease
             echo "committed=true" >> "$GITHUB_OUTPUT"
             echo "branch=$(git rev-parse --abbrev-ref HEAD)" >> "$GITHUB_OUTPUT"
           else
