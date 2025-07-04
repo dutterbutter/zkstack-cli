@@ -23,26 +23,21 @@ jobs:
           token: ${{ secrets.PAT_PUSH }}
           fetch-depth: 0
 
-      - name: Fetch upstream source
-        run: |
-          # clone to a throw-away dir that lives outside the mirror repo
-          UPSTREAM_DIR=$(mktemp -d)
-          git clone --depth 1 https://github.com/${UPSTREAM_REPO}.git "$UPSTREAM_DIR"
-
-      - name: Prepare sync branch (clone & rsync)
+      - name: Prepare sync branch
         run: |
           BRANCH=sync/upstream-$(date -u +%Y%m%d)
           git switch -c "$BRANCH" || git switch "$BRANCH"
 
-          # keep workflows
           git rm -rf --ignore-unmatch \
               $(ls -A | grep -v '^\.git$' | grep -v '^\.github$')
 
-          rsync -a --delete --exclude '.git' --exclude '.github' \
-                "$UPSTREAM_DIR/${SUBDIR}/" ./
-          rm -rf "$UPSTREAM_DIR"
-          rm -f Cargo.lock
+          TMP=$(mktemp -d)
+          git clone --depth 1 https://github.com/${UPSTREAM_REPO}.git "$TMP"
 
+          rsync -a --delete --exclude '.git' --exclude '.github' \
+                "$TMP/${SUBDIR}/" ./
+          rm -rf "$TMP"
+          rm -f Cargo.lock
 
       # 4. Commit if there are changes
       - name: Commit changes (if any)
