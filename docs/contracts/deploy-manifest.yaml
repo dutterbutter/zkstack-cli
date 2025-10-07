@@ -1,0 +1,530 @@
+# L1 Ecosystem Deployment Manifest
+# This manifest describes the ordered deployment of L1 contracts for a ZK Stack ecosystem
+# Executed by: deployer (mostly), governor (for ownership acceptance)
+# Network: Localhost (Anvil/Reth)
+# Mode: Rollup (no-proofs)
+
+deploy_plan:
+  # Phase 1: Infrastructure
+  - id: governance_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "Governance.constructor(address,address,uint256)"
+    params:
+      owner_address: "<owner_address>"
+      security_council: "<security_council>"
+      min_delay: "<governance_min_delay>"
+    deployment: create
+    idempotency_check: "code_at(<governance_addr>) != 0x"
+    postcondition: "code_at(<governance_addr>) != 0x && governance.owner() == <owner_address>"
+
+  - id: proxy_admin_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "ProxyAdmin.constructor(address)"
+    params:
+      initial_owner: "<deployer>"
+    deployment: create
+    idempotency_check: "code_at(<proxy_admin>) != 0x"
+    postcondition: "code_at(<proxy_admin>) != 0x"
+
+  - id: create2_factory_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "SingletonFactory.constructor()"
+    params: []
+    deployment: create
+    idempotency_check: "code_at(<create2_factory_addr>) != 0x"
+    postcondition: "code_at(<create2_factory_addr>) != 0x"
+
+  # Phase 2: Bridgehub
+  - id: bridgehub_impl_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "Bridgehub.constructor()"
+    params: []
+    deployment: create
+    depends_on: [proxy_admin_deploy]
+    idempotency_check: "code_at(<bridgehub_impl>) != 0x"
+    postcondition: "code_at(<bridgehub_impl>) != 0x"
+
+  - id: bridgehub_proxy_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "TransparentUpgradeableProxy.constructor(address,address,bytes)"
+    params:
+      implementation: "<bridgehub_impl>"
+      admin: "<proxy_admin>"
+      data: "0x"
+    deployment: create
+    depends_on: [bridgehub_impl_deploy]
+    idempotency_check: "code_at(<bridgehub_proxy>) != 0x"
+    postcondition: "proxy_impl(<bridgehub_proxy>) == <bridgehub_impl>"
+
+  - id: bridgehub_initialize
+    from_role: deployer
+    to: "<bridgehub_proxy>"
+    method: "initialize(address)"
+    params:
+      _owner: "<deployer>"
+    depends_on: [bridgehub_proxy_deploy]
+    idempotency_check: "bridgehub.owner() != address(0)"
+    postcondition: "bridgehub.owner() == <deployer>"
+
+  # Phase 3: StateTransitionManager
+  - id: stm_impl_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "StateTransitionManager.constructor(address,uint256)"
+    params:
+      bridgehub: "<bridgehub_proxy>"
+      max_number_of_chains: "<max_number_of_chains>"
+    deployment: create
+    depends_on: [bridgehub_proxy_deploy]
+    idempotency_check: "code_at(<stm_impl>) != 0x"
+    postcondition: "code_at(<stm_impl>) != 0x"
+
+  - id: stm_proxy_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "TransparentUpgradeableProxy.constructor(address,address,bytes)"
+    params:
+      implementation: "<stm_impl>"
+      admin: "<proxy_admin>"
+      data: "<stm_init_data>"
+    deployment: create
+    depends_on: [stm_impl_deploy]
+    idempotency_check: "code_at(<stm_proxy>) != 0x"
+    postcondition: "proxy_impl(<stm_proxy>) == <stm_impl>"
+
+  # Phase 4: Validator and Admin
+  - id: validator_timelock_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "ValidatorTimelock.constructor(address,uint256,uint256)"
+    params:
+      initial_owner: "<deployer>"
+      execution_delay: "<execution_delay>"
+      era_chain_id: "<era_chain_id>"
+    deployment: create
+    idempotency_check: "code_at(<validator_timelock>) != 0x"
+    postcondition: "code_at(<validator_timelock>) != 0x"
+
+  - id: chain_admin_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "ChainAdmin.constructor(address[])"
+    params:
+      restriction_addresses: ["<access_control_restriction>"]
+    deployment: create
+    idempotency_check: "code_at(<chain_admin>) != 0x"
+    postcondition: "code_at(<chain_admin>) != 0x"
+
+  - id: access_control_restriction_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "AccessControlRestriction.constructor(uint256,address)"
+    params:
+      min_delay: "<admin_min_delay>"
+      chain_admin: "<chain_admin>"
+    deployment: create
+    depends_on: [chain_admin_deploy]
+    idempotency_check: "code_at(<access_control_restriction>) != 0x"
+    postcondition: "code_at(<access_control_restriction>) != 0x"
+
+  # Phase 5: Bridge Infrastructure - Asset Router
+  - id: l1_asset_router_impl_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "L1AssetRouter.constructor(address,address,address,uint256)"
+    params:
+      l1_wrapped_base_token_store: "<l1_wrapped_base_token_store>"
+      bridgehub: "<bridgehub_proxy>"
+      l1_nullifier: "<l1_nullifier_proxy>"
+      era_chain_id: "<era_chain_id>"
+    deployment: create
+    depends_on: [bridgehub_proxy_deploy]
+    idempotency_check: "code_at(<asset_router_impl>) != 0x"
+    postcondition: "code_at(<asset_router_impl>) != 0x"
+
+  - id: l1_asset_router_proxy_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "TransparentUpgradeableProxy.constructor(address,address,bytes)"
+    params:
+      implementation: "<asset_router_impl>"
+      admin: "<proxy_admin>"
+      data: "<asset_router_init_data>"
+    deployment: create
+    depends_on: [l1_asset_router_impl_deploy]
+    idempotency_check: "code_at(<l1_asset_router_proxy>) != 0x"
+    postcondition: "proxy_impl(<l1_asset_router_proxy>) == <asset_router_impl>"
+
+  # Phase 6: Bridge Infrastructure - Nullifier
+  - id: l1_nullifier_impl_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "L1Nullifier.constructor(address,uint256,address)"
+    params:
+      bridgehub: "<bridgehub_proxy>"
+      era_chain_id: "<era_chain_id>"
+      l1_asset_router: "<l1_asset_router_proxy>"
+    deployment: create
+    depends_on: [bridgehub_proxy_deploy, l1_asset_router_proxy_deploy]
+    idempotency_check: "code_at(<nullifier_impl>) != 0x"
+    postcondition: "code_at(<nullifier_impl>) != 0x"
+
+  - id: l1_nullifier_proxy_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "TransparentUpgradeableProxy.constructor(address,address,bytes)"
+    params:
+      implementation: "<nullifier_impl>"
+      admin: "<proxy_admin>"
+      data: "<nullifier_init_data>"
+    deployment: create
+    depends_on: [l1_nullifier_impl_deploy]
+    idempotency_check: "code_at(<l1_nullifier_proxy>) != 0x"
+    postcondition: "proxy_impl(<l1_nullifier_proxy>) == <nullifier_impl>"
+
+  # Phase 7: Bridge Infrastructure - ERC20 Bridge
+  - id: l1_erc20_bridge_impl_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "L1ERC20Bridge.constructor(address,address,address,uint256)"
+    params:
+      l1_nullifier: "<l1_nullifier_proxy>"
+      l1_asset_router: "<l1_asset_router_proxy>"
+      native_token_vault: "<native_token_vault_proxy>"
+      era_chain_id: "<era_chain_id>"
+    deployment: create
+    depends_on: [l1_nullifier_proxy_deploy, l1_asset_router_proxy_deploy]
+    idempotency_check: "code_at(<bridge_impl>) != 0x"
+    postcondition: "code_at(<bridge_impl>) != 0x"
+
+  - id: l1_erc20_bridge_proxy_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "TransparentUpgradeableProxy.constructor(address,address,bytes)"
+    params:
+      implementation: "<bridge_impl>"
+      admin: "<proxy_admin>"
+      data: "<bridge_init_data>"
+    deployment: create
+    depends_on: [l1_erc20_bridge_impl_deploy]
+    idempotency_check: "code_at(<l1_erc20_bridge_proxy>) != 0x"
+    postcondition: "proxy_impl(<l1_erc20_bridge_proxy>) == <bridge_impl>"
+
+  # Phase 8: Bridge Infrastructure - Native Token Vault
+  - id: native_token_vault_impl_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "L1NativeTokenVault.constructor(address,address,address)"
+    params:
+      l1_wrapped_base_token_store: "<l1_wrapped_base_token_store>"
+      l1_asset_router: "<l1_asset_router_proxy>"
+      l1_nullifier: "<l1_nullifier_proxy>"
+    deployment: create
+    depends_on: [l1_asset_router_proxy_deploy, l1_nullifier_proxy_deploy]
+    idempotency_check: "code_at(<vault_impl>) != 0x"
+    postcondition: "code_at(<vault_impl>) != 0x"
+
+  - id: native_token_vault_proxy_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "TransparentUpgradeableProxy.constructor(address,address,bytes)"
+    params:
+      implementation: "<vault_impl>"
+      admin: "<proxy_admin>"
+      data: "<vault_init_data>"
+    deployment: create
+    depends_on: [native_token_vault_impl_deploy]
+    idempotency_check: "code_at(<native_token_vault_proxy>) != 0x"
+    postcondition: "proxy_impl(<native_token_vault_proxy>) == <vault_impl>"
+
+  # Phase 9: Message Root
+  - id: message_root_impl_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "MessageRoot.constructor(address)"
+    params:
+      bridgehub: "<bridgehub_proxy>"
+    deployment: create
+    depends_on: [bridgehub_proxy_deploy]
+    idempotency_check: "code_at(<msg_root_impl>) != 0x"
+    postcondition: "code_at(<msg_root_impl>) != 0x"
+
+  - id: message_root_proxy_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "TransparentUpgradeableProxy.constructor(address,address,bytes)"
+    params:
+      implementation: "<msg_root_impl>"
+      admin: "<proxy_admin>"
+      data: "0x"
+    deployment: create
+    depends_on: [message_root_impl_deploy]
+    idempotency_check: "code_at(<message_root_proxy>) != 0x"
+    postcondition: "proxy_impl(<message_root_proxy>) == <msg_root_impl>"
+
+  # Phase 10: Server Notifier
+  - id: server_notifier_impl_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "ServerNotifier.constructor()"
+    params: []
+    deployment: create
+    idempotency_check: "code_at(<notifier_impl>) != 0x"
+    postcondition: "code_at(<notifier_impl>) != 0x"
+
+  - id: server_notifier_proxy_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "TransparentUpgradeableProxy.constructor(address,address,bytes)"
+    params:
+      implementation: "<notifier_impl>"
+      admin: "<proxy_admin>"
+      data: "0x"
+    deployment: create
+    depends_on: [server_notifier_impl_deploy]
+    idempotency_check: "code_at(<server_notifier_proxy>) != 0x"
+    postcondition: "proxy_impl(<server_notifier_proxy>) == <notifier_impl>"
+
+  # Phase 11: STM Deployment Tracker
+  - id: stm_deployment_tracker_impl_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "ChainTypeManagerDeploymentTracker.constructor(address,address)"
+    params:
+      bridgehub: "<bridgehub_proxy>"
+      l1_asset_router: "<l1_asset_router_proxy>"
+    deployment: create
+    depends_on: [bridgehub_proxy_deploy, l1_asset_router_proxy_deploy]
+    idempotency_check: "code_at(<tracker_impl>) != 0x"
+    postcondition: "code_at(<tracker_impl>) != 0x"
+
+  - id: stm_deployment_tracker_proxy_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "TransparentUpgradeableProxy.constructor(address,address,bytes)"
+    params:
+      implementation: "<tracker_impl>"
+      admin: "<proxy_admin>"
+      data: "<tracker_init_data>"
+    deployment: create
+    depends_on: [stm_deployment_tracker_impl_deploy]
+    idempotency_check: "code_at(<stm_deployment_tracker_proxy>) != 0x"
+    postcondition: "proxy_impl(<stm_deployment_tracker_proxy>) == <tracker_impl>"
+
+  # Phase 12: Diamond Facets
+  - id: verifier_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "Verifier.constructor()"
+    params: []
+    deployment: create
+    idempotency_check: "code_at(<verifier>) != 0x"
+    postcondition: "code_at(<verifier>) != 0x"
+
+  - id: admin_facet_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "AdminFacet.constructor()"
+    params: []
+    deployment: create
+    idempotency_check: "code_at(<admin_facet>) != 0x"
+    postcondition: "code_at(<admin_facet>) != 0x"
+
+  - id: getters_facet_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "GettersFacet.constructor()"
+    params: []
+    deployment: create
+    idempotency_check: "code_at(<getters_facet>) != 0x"
+    postcondition: "code_at(<getters_facet>) != 0x"
+
+  - id: mailbox_facet_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "MailboxFacet.constructor(uint256,uint256)"
+    params:
+      era_chain_id: "<era_chain_id>"
+      l1_gas_per_pubdata_byte: "<l1_gas_per_pubdata_byte>"
+    deployment: create
+    idempotency_check: "code_at(<mailbox_facet>) != 0x"
+    postcondition: "code_at(<mailbox_facet>) != 0x"
+
+  - id: executor_facet_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "ExecutorFacet.constructor(uint256)"
+    params:
+      l1_gas_per_pubdata_byte: "<l1_gas_per_pubdata_byte>"
+    deployment: create
+    idempotency_check: "code_at(<executor_facet>) != 0x"
+    postcondition: "code_at(<executor_facet>) != 0x"
+
+  - id: diamond_init_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "DiamondInit.constructor()"
+    params: []
+    deployment: create
+    idempotency_check: "code_at(<diamond_init>) != 0x"
+    postcondition: "code_at(<diamond_init>) != 0x"
+
+  - id: genesis_upgrade_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "GenesisUpgrade.constructor()"
+    params: []
+    deployment: create
+    idempotency_check: "code_at(<genesis_upgrade>) != 0x"
+    postcondition: "code_at(<genesis_upgrade>) != 0x"
+
+  - id: default_upgrade_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "DefaultUpgrade.constructor()"
+    params: []
+    deployment: create
+    idempotency_check: "code_at(<default_upgrade>) != 0x"
+    postcondition: "code_at(<default_upgrade>) != 0x"
+
+  - id: bytecodes_supplier_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "L1BytecodesSupplier.constructor()"
+    params: []
+    deployment: create
+    idempotency_check: "code_at(<bytecodes_supplier>) != 0x"
+    postcondition: "code_at(<bytecodes_supplier>) != 0x"
+
+  # Phase 13: DA Validators
+  - id: rollup_da_validator_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "RollupL1DAValidator.constructor()"
+    params: []
+    deployment: create
+    idempotency_check: "code_at(<rollup_da_validator>) != 0x"
+    postcondition: "code_at(<rollup_da_validator>) != 0x"
+
+  - id: validium_da_validator_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "ValidiumL1DAValidator.constructor()"
+    params: []
+    deployment: create
+    idempotency_check: "code_at(<validium_da_validator>) != 0x"
+    postcondition: "code_at(<validium_da_validator>) != 0x"
+
+  - id: avail_da_validator_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "AvailDAValidator.constructor()"
+    params: []
+    deployment: create
+    idempotency_check: "code_at(<avail_da_validator>) != 0x"
+    postcondition: "code_at(<avail_da_validator>) != 0x"
+
+  # Phase 14: Utilities
+  - id: multicall3_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "Multicall3.constructor()"
+    params: []
+    deployment: create
+    idempotency_check: "code_at(<multicall3>) != 0x"
+    postcondition: "code_at(<multicall3>) != 0x"
+
+  - id: blob_versioned_hash_retriever_deploy
+    from_role: deployer
+    to: "0x0"
+    method: "BlobVersionedHashRetriever.constructor()"
+    params: []
+    deployment: create
+    idempotency_check: "code_at(<blob_versioned_hash_retriever>) != 0x"
+    postcondition: "code_at(<blob_versioned_hash_retriever>) != 0x"
+
+  # Phase 15: Ownership Transfers (Governor accepts ownership)
+  - id: accept_bridgehub_ownership
+    from_role: governor
+    to: "<governance>"
+    method: "acceptOwner(address)"
+    params:
+      target: "<bridgehub_proxy>"
+    depends_on: [bridgehub_initialize]
+    idempotency_check: "bridgehub.owner() == <governance>"
+    postcondition: "bridgehub.owner() == <governance>"
+
+  - id: accept_bridgehub_admin
+    from_role: governor
+    to: "<chain_admin>"
+    method: "acceptAdmin(address)"
+    params:
+      target: "<bridgehub_proxy>"
+    depends_on: [accept_bridgehub_ownership]
+    idempotency_check: "proxy_admin(<bridgehub_proxy>) == <chain_admin>"
+    postcondition: "proxy_admin(<bridgehub_proxy>) == <chain_admin>"
+
+  - id: accept_l1_asset_router_ownership
+    from_role: governor
+    to: "<governance>"
+    method: "acceptOwner(address)"
+    params:
+      target: "<l1_asset_router_proxy>"
+    depends_on: [l1_asset_router_proxy_deploy]
+    idempotency_check: "assetRouter.owner() == <governance>"
+    postcondition: "assetRouter.owner() == <governance>"
+
+  - id: accept_l1_nullifier_ownership
+    from_role: governor
+    to: "<governance>"
+    method: "acceptOwner(address)"
+    params:
+      target: "<l1_nullifier_proxy>"
+    depends_on: [l1_nullifier_proxy_deploy]
+    idempotency_check: "nullifier.owner() == <governance>"
+    postcondition: "nullifier.owner() == <governance>"
+
+  - id: accept_native_token_vault_ownership
+    from_role: governor
+    to: "<governance>"
+    method: "acceptOwner(address)"
+    params:
+      target: "<native_token_vault_proxy>"
+    depends_on: [native_token_vault_proxy_deploy]
+    idempotency_check: "vault.owner() == <governance>"
+    postcondition: "vault.owner() == <governance>"
+
+  - id: accept_stm_ownership
+    from_role: governor
+    to: "<governance>"
+    method: "acceptOwner(address)"
+    params:
+      target: "<stm_proxy>"
+    depends_on: [stm_proxy_deploy]
+    idempotency_check: "stm.owner() == <governance>"
+    postcondition: "stm.owner() == <governance>"
+
+  - id: accept_stm_admin
+    from_role: governor
+    to: "<chain_admin>"
+    method: "acceptAdmin(address)"
+    params:
+      target: "<stm_proxy>"
+    depends_on: [accept_stm_ownership]
+    idempotency_check: "proxy_admin(<stm_proxy>) == <chain_admin>"
+    postcondition: "proxy_admin(<stm_proxy>) == <chain_admin>"
+
+  - id: accept_stm_tracker_ownership
+    from_role: governor
+    to: "<governance>"
+    method: "acceptOwner(address)"
+    params:
+      target: "<stm_deployment_tracker_proxy>"
+    depends_on: [stm_deployment_tracker_proxy_deploy]
+    idempotency_check: "tracker.owner() == <governance>"
+    postcondition: "tracker.owner() == <governance>"

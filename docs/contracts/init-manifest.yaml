@@ -1,0 +1,331 @@
+# Chain Initialization Manifest
+# This manifest describes the ordered steps to initialize a new ZK Stack chain
+# Executed by: governor (mostly), deployer (for some L2 deployments)
+# Network: Localhost (Anvil/Reth) for L1, newly created chain for L2
+# Mode: Rollup (no-proofs)
+# Prerequisites: Ecosystem contracts deployed (deploy-manifest.yaml executed)
+
+init_plan:
+  # Phase 1: Fund Wallets (Localhost only)
+  - id: fund_governor
+    from_role: deployer
+    to: "<governor>"
+    method: "eth_transfer"
+    params:
+      amount: "<eth_amount>"
+    idempotency_check: "balance(<governor>) >= <eth_amount>"
+    postcondition: "balance(<governor>) >= <eth_amount>"
+    notes: "Fund governor wallet with ETH for gas"
+
+  - id: fund_operator
+    from_role: deployer
+    to: "<operator>"
+    method: "eth_transfer"
+    params:
+      amount: "<eth_amount>"
+    idempotency_check: "balance(<operator>) >= <eth_amount>"
+    postcondition: "balance(<operator>) >= <eth_amount>"
+    notes: "Fund operator wallet with ETH for gas"
+
+  - id: fund_blob_operator
+    from_role: deployer
+    to: "<blob_operator>"
+    method: "eth_transfer"
+    params:
+      amount: "<eth_amount>"
+    idempotency_check: "balance(<blob_operator>) >= <eth_amount>"
+    postcondition: "balance(<blob_operator>) >= <eth_amount>"
+    notes: "Fund blob operator wallet with ETH for gas"
+
+  # Phase 2: Base Token Setup (if not ETH)
+  - id: mint_base_token_to_governor
+    from_role: deployer
+    to: "<base_token_addr>"
+    method: "mint(address,uint256)"
+    params:
+      recipient: "<governor>"
+      amount: "<base_token_amount>"
+    depends_on: []
+    idempotency_check: "baseToken.balanceOf(<governor>) >= <base_token_amount>"
+    postcondition: "baseToken.balanceOf(<governor>) >= <base_token_amount>"
+    notes: "Only if base_token != ETH"
+    conditional: "base_token != ETH"
+
+  # Phase 3: Register ZK Chain
+  - id: register_zk_chain
+    from_role: governor
+    to: "<bridgehub_proxy>"
+    method: "registerZKChain(uint256,address,bytes32,address,bool,bytes,bytes)"
+    params:
+      chain_id: "<chain_id>"
+      base_token: "<base_token_addr>"
+      salt: "<bridgehub_create_new_chain_salt>"
+      admin: "<chain_admin>"
+      validium_mode: "<validium_mode>"
+      diamond_cut_data: "<diamond_cut_data>"
+      force_deployments_data: "<force_deployments_data>"
+    depends_on: []
+    idempotency_check: "bridgehub.getZKChain(<chain_id>) != address(0)"
+    postcondition: "event(Bridgehub.ChainRegistered, chain_id=<chain_id>)"
+    events_to_watch: ["ChainRegistered(uint256,address)"]
+    notes: "Creates DiamondProxy and registers chain with Bridgehub"
+
+  # Phase 4: Accept Diamond Proxy Admin
+  - id: accept_diamond_proxy_admin
+    from_role: governor
+    to: "<chain_admin>"
+    method: "acceptAdmin(address)"
+    params:
+      target: "<diamond_proxy>"
+    depends_on: [register_zk_chain]
+    idempotency_check: "proxy_admin(<diamond_proxy>) == <chain_admin>"
+    postcondition: "proxy_admin(<diamond_proxy>) == <chain_admin>"
+    notes: "Governor accepts admin role for the chain's DiamondProxy"
+
+  # Phase 5: Set Token Multiplier Setter (if custom base token)
+  - id: set_token_multiplier_setter
+    from_role: governor
+    to: "<access_control_restriction>"
+    method: "setTokenMultiplierSetter(address,address)"
+    params:
+      diamond_proxy: "<diamond_proxy>"
+      token_multiplier_setter: "<token_multiplier_setter_address>"
+    depends_on: [accept_diamond_proxy_admin]
+    idempotency_check: "diamond.getTokenMultiplierSetter() == <token_multiplier_setter_address>"
+    postcondition: "diamond.getTokenMultiplierSetter() == <token_multiplier_setter_address>"
+    notes: "Only if base_token != ETH"
+    conditional: "base_token != ETH"
+
+  # Phase 6: Enable EVM Emulator (if configured)
+  - id: enable_evm_emulator
+    from_role: governor
+    to: "<chain_admin>"
+    method: "enableEvmEmulator(address)"
+    params:
+      diamond_proxy: "<diamond_proxy>"
+    depends_on: [accept_diamond_proxy_admin]
+    idempotency_check: "diamond.isEvmEmulatorEnabled()"
+    postcondition: "diamond.isEvmEmulatorEnabled() == true"
+    notes: "Only if evm_emulator flag is true"
+    conditional: "evm_emulator == true"
+
+  # Phase 7: Deploy L2 Contracts - L2 Default Upgrader
+  - id: deploy_l2_default_upgrader
+    from_role: governor
+    to: "<diamond_proxy>"
+    method: "l1ToL2Transaction(deploy L2DefaultUpgrader)"
+    params:
+      force_deployment: true
+      bytecode: "<l2_default_upgrader_bytecode>"
+    depends_on: [register_zk_chain]
+    idempotency_check: "code_at_l2(<l2_default_upgrader>) != 0x"
+    postcondition: "code_at_l2(<l2_default_upgrader>) != 0x"
+    notes: "Deployed via force deployment mechanism"
+
+  # Phase 8: Deploy L2 Contracts - L2 DA Validator
+  - id: deploy_l2_da_validator
+    from_role: governor
+    to: "<diamond_proxy>"
+    method: "l1ToL2Transaction(deploy L2DAValidator)"
+    params:
+      force_deployment: true
+      bytecode: "<l2_da_validator_bytecode>"
+      constructor_args: ["<l1_da_validator>"]
+    depends_on: [register_zk_chain]
+    idempotency_check: "code_at_l2(<l2_da_validator>) != 0x"
+    postcondition: "code_at_l2(<l2_da_validator>) != 0x && l2_da_validator.l1DAValidator() == <l1_da_validator>"
+    notes: "Deployed via force deployment mechanism"
+
+  # Phase 9: Initialize L2 Bridges
+  - id: initialize_l2_asset_router
+    from_role: governor
+    to: "<diamond_proxy>"
+    method: "l1ToL2Transaction(initialize L2AssetRouter)"
+    params:
+      target: "<l2_asset_router_predeployed>"
+      data: "initialize(<l1_asset_router>,<l2_token_beacon>,<legacy_shared_bridge>)"
+    depends_on: [deploy_l2_default_upgrader]
+    idempotency_check: "l2_asset_router.l1AssetRouter() == <l1_asset_router>"
+    postcondition: "l2_asset_router.l1AssetRouter() == <l1_asset_router>"
+    notes: "L2AssetRouter is predeployed at 0x10003"
+
+  - id: initialize_l2_native_token_vault
+    from_role: governor
+    to: "<diamond_proxy>"
+    method: "l1ToL2Transaction(initialize L2NativeTokenVault)"
+    params:
+      target: "<l2_native_token_vault_predeployed>"
+      data: "initialize(<l1_native_token_vault>,<l2_asset_router>,<legacy_shared_bridge>)"
+    depends_on: [initialize_l2_asset_router]
+    idempotency_check: "l2_vault.l1NativeTokenVault() == <l1_native_token_vault>"
+    postcondition: "l2_vault.l1NativeTokenVault() == <l1_native_token_vault>"
+    notes: "L2NativeTokenVault is predeployed at 0x10004"
+
+  # Phase 10: Set DA Validator Pair
+  - id: set_da_validator_pair
+    from_role: governor
+    to: "<governance>"
+    method: "setDAValidatorPair(address,uint256,address,address,bool)"
+    params:
+      bridgehub: "<bridgehub_proxy>"
+      chain_id: "<chain_id>"
+      l1_da_validator: "<l1_da_validator>"
+      l2_da_validator: "<l2_da_validator>"
+      should_send: true
+    depends_on: [deploy_l2_da_validator]
+    idempotency_check: "bridgehub.getL1DAValidator(<chain_id>) == <l1_da_validator>"
+    postcondition: "bridgehub.getL1DAValidator(<chain_id>) == <l1_da_validator> && bridgehub.getL2DAValidator(<chain_id>) == <l2_da_validator>"
+    notes: "Links L1 and L2 DA validators for the chain"
+
+  # Phase 11: Make Permanent Rollup (optional)
+  - id: make_permanent_rollup
+    from_role: governor
+    to: "<chain_admin>"
+    method: "makePermanentRollup(address)"
+    params:
+      diamond_proxy: "<diamond_proxy>"
+    depends_on: [set_da_validator_pair]
+    idempotency_check: "diamond.isPermanentRollup()"
+    postcondition: "diamond.isPermanentRollup() == true"
+    notes: "Only if make_permanent_rollup flag is true (prevents migration to validium)"
+    conditional: "make_permanent_rollup == true"
+
+  # Phase 12: Setup Legacy Bridge (optional, deprecated)
+  - id: setup_legacy_bridge
+    from_role: governor
+    to: "<l1_asset_router>"
+    method: "setupLegacyBridge(uint256,address)"
+    params:
+      chain_id: "<chain_id>"
+      l2_legacy_shared_bridge: "<l2_legacy_shared_bridge>"
+    depends_on: [initialize_l2_native_token_vault]
+    idempotency_check: "assetRouter.getLegacyBridge(<chain_id>) != address(0)"
+    postcondition: "assetRouter.getLegacyBridge(<chain_id>) == <l2_legacy_shared_bridge>"
+    notes: "Only if legacy_bridge flag is true (not recommended for new chains)"
+    conditional: "legacy_bridge == true"
+
+  # Phase 13: Deploy Optional L2 Contracts
+  - id: deploy_consensus_registry
+    from_role: governor
+    to: "<diamond_proxy>"
+    method: "l1ToL2Transaction(deploy ConsensusRegistry)"
+    params:
+      bytecode: "<consensus_registry_bytecode>"
+      constructor_args: ["<governor>", "<initial_nodes>"]
+    depends_on: [initialize_l2_native_token_vault]
+    idempotency_check: "code_at_l2(<consensus_registry>) != 0x"
+    postcondition: "code_at_l2(<consensus_registry>) != 0x && consensus_registry.owner() == <governor>"
+    notes: "Optional: Only if consensus is configured"
+    conditional: "deploy_consensus == true"
+
+  - id: deploy_multicall3_l2
+    from_role: governor
+    to: "<diamond_proxy>"
+    method: "l1ToL2Transaction(deploy Multicall3)"
+    params:
+      bytecode: "<multicall3_bytecode>"
+    depends_on: [initialize_l2_native_token_vault]
+    idempotency_check: "code_at_l2(<multicall3_l2>) != 0x"
+    postcondition: "code_at_l2(<multicall3_l2>) != 0x"
+    notes: "Optional: Utility contract for batched calls"
+    conditional: "deploy_multicall3 == true"
+
+  - id: deploy_timestamp_asserter
+    from_role: governor
+    to: "<diamond_proxy>"
+    method: "l1ToL2Transaction(deploy TimestampAsserter)"
+    params:
+      bytecode: "<timestamp_asserter_bytecode>"
+      constructor_args: ["<l1_asset_router>"]
+    depends_on: [initialize_l2_native_token_vault]
+    idempotency_check: "code_at_l2(<timestamp_asserter>) != 0x"
+    postcondition: "code_at_l2(<timestamp_asserter>) != 0x"
+    notes: "Optional: For timestamp validation"
+    conditional: "deploy_timestamp_asserter == true"
+
+  # Phase 14: Deploy Testnet Paymaster (optional)
+  - id: deploy_testnet_paymaster
+    from_role: governor
+    to: "<diamond_proxy>"
+    method: "l1ToL2Transaction(deploy TestnetPaymaster)"
+    params:
+      bytecode: "<testnet_paymaster_bytecode>"
+    depends_on: [initialize_l2_native_token_vault]
+    idempotency_check: "code_at_l2(<testnet_paymaster>) != 0x"
+    postcondition: "code_at_l2(<testnet_paymaster>) != 0x"
+    notes: "Optional: Only for development/testnet environments"
+    conditional: "deploy_paymaster == true"
+
+  # Phase 15: Genesis Database Setup
+  - id: generate_genesis
+    from_role: server
+    method: "zkstack chain genesis"
+    params:
+      chain_config: "<chain_config_path>"
+      server_db_url: "<server_db_url>"
+      server_db_name: "<server_db_name>"
+    depends_on: [set_da_validator_pair, deploy_l2_da_validator]
+    idempotency_check: "database_exists(<server_db_name>)"
+    postcondition: "database_exists(<server_db_name>) && genesis_committed()"
+    notes: "Initializes chain database with genesis block"
+
+# Validation Steps
+validation_plan:
+  - id: verify_chain_registered
+    check: "bridgehub.getZKChain(<chain_id>) == <diamond_proxy>"
+    description: "Chain is registered in Bridgehub"
+
+  - id: verify_diamond_proxy_deployed
+    check: "code_at(<diamond_proxy>) != 0x"
+    description: "DiamondProxy is deployed at expected address"
+
+  - id: verify_diamond_facets
+    check: "diamond.facets().length >= 4"
+    description: "All diamond facets are attached (Admin, Getters, Mailbox, Executor)"
+
+  - id: verify_l2_bridges_initialized
+    check: "l2_asset_router.l1AssetRouter() == <l1_asset_router> && l2_vault.l1NativeTokenVault() == <l1_native_token_vault>"
+    description: "L2 bridge contracts are properly initialized"
+
+  - id: verify_da_validators
+    check: "bridgehub.getL1DAValidator(<chain_id>) == <l1_da_validator> && bridgehub.getL2DAValidator(<chain_id>) == <l2_da_validator>"
+    description: "DA validator pair is set correctly"
+
+  - id: verify_chain_admin
+    check: "proxy_admin(<diamond_proxy>) == <chain_admin>"
+    description: "Chain admin has accepted admin role"
+
+  - id: verify_base_token
+    check: "diamond.getBaseToken() == <base_token_addr>"
+    description: "Base token is configured correctly"
+
+  - id: verify_genesis_committed
+    check: "diamond.getL2SystemContractsUpgradeBatchNumber() == 0"
+    description: "Genesis batch is committed"
+
+# Role Mapping
+roles:
+  deployer:
+    description: "Deploys contracts and funds initial wallets"
+    permissions: ["deploy", "transfer_eth"]
+    wallet_config: "wallets.yaml:deployer"
+
+  governor:
+    description: "Governance role - registers chains, accepts ownership, configures parameters"
+    permissions: ["register_chain", "accept_admin", "configure_validators", "l1_to_l2_tx"]
+    wallet_config: "wallets.yaml:governor"
+
+  operator:
+    description: "Operates the chain - commits batches, proves, executes"
+    permissions: ["commit_batches", "prove_batches", "execute_batches"]
+    wallet_config: "wallets.yaml:operator"
+
+  blob_operator:
+    description: "Submits blob data for batches"
+    permissions: ["submit_blobs"]
+    wallet_config: "wallets.yaml:blob_operator"
+
+  server:
+    description: "Server process that generates genesis and runs the chain"
+    permissions: ["database_init", "run_server"]
+    wallet_config: "Not applicable - uses database credentials"
