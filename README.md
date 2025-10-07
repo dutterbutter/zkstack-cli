@@ -40,6 +40,19 @@ cargo install --path zkstack_cli/crates/zkstack --force --locked
 
 And make sure that `.cargo/bin` is included into `PATH`.
 
+### Contract Documentation
+
+Comprehensive documentation for ZK Stack contracts and deployment manifests is available in the `docs/contracts/` directory:
+
+- **[CONTRACTS.md](docs/contracts/CONTRACTS.md)**: Complete L1/L2 contract inventory with deployment details
+- **[contracts.json](docs/contracts/contracts.json)**: Machine-readable contract specifications
+- **[deploy-manifest.yaml](docs/contracts/deploy-manifest.yaml)**: Ordered L1 ecosystem deployment steps
+- **[init-manifest.yaml](docs/contracts/init-manifest.yaml)**: Chain initialization workflow
+- **[source-map.json](docs/contracts/source-map.json)**: Links manifest steps to source code
+- **[validation.md](docs/contracts/validation.md)**: Deployment validation and troubleshooting guide
+
+These manifests provide the canonical specification for implementing single-command setup tools and understanding the complete deployment flow.
+
 ### Foundry Integration
 
 Foundry is used for deploying smart contracts. Pass flags for Foundry integration with the `-a` option, e.g.,

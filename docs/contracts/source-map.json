@@ -1,0 +1,313 @@
+{
+  "deploy_manifest": {
+    "governance_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployGovernance",
+      "lines": [150, 175],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "Deployed via vm.broadcast() in DeployL1 script"
+    },
+    "proxy_admin_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployProxyAdmin",
+      "lines": [180, 195],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "TransparentUpgradeableProxy admin contract"
+    },
+    "create2_factory_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployCreate2Factory",
+      "lines": [200, 215],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "SingletonFactory for deterministic deployments"
+    },
+    "bridgehub_impl_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployBridgehubImplementation",
+      "lines": [300, 315],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "Bridgehub implementation contract"
+    },
+    "bridgehub_proxy_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployBridgehubProxy",
+      "lines": [320, 340],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "TransparentUpgradeableProxy for Bridgehub"
+    },
+    "bridgehub_initialize": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "initializeBridgehub",
+      "lines": [345, 360],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "Initializes Bridgehub with owner"
+    },
+    "stm_impl_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployStateTransitionManagerImplementation",
+      "lines": [400, 420],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "StateTransitionManager implementation"
+    },
+    "stm_proxy_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployStateTransitionManagerProxy",
+      "lines": [425, 450],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "TransparentUpgradeableProxy for STM"
+    },
+    "validator_timelock_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployValidatorTimelock",
+      "lines": [500, 520],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "ValidatorTimelock for batch execution delay"
+    },
+    "chain_admin_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployChainAdmin",
+      "lines": [525, 545],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "ChainAdmin for chain governance"
+    },
+    "access_control_restriction_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployAccessControlRestriction",
+      "lines": [550, 570],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "AccessControlRestriction for admin time delays"
+    },
+    "verifier_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployVerifier",
+      "lines": [800, 815],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "Verifier for proof validation"
+    },
+    "admin_facet_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployAdminFacet",
+      "lines": [820, 835],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "Diamond AdminFacet"
+    },
+    "getters_facet_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployGettersFacet",
+      "lines": [840, 855],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "Diamond GettersFacet"
+    },
+    "mailbox_facet_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployMailboxFacet",
+      "lines": [860, 880],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "Diamond MailboxFacet with era_chain_id"
+    },
+    "executor_facet_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployExecutorFacet",
+      "lines": [885, 905],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "Diamond ExecutorFacet"
+    },
+    "diamond_init_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployDiamondInit",
+      "lines": [910, 925],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "DiamondInit for initialization"
+    },
+    "genesis_upgrade_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployGenesisUpgrade",
+      "lines": [930, 945],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "GenesisUpgrade contract"
+    },
+    "default_upgrade_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployDefaultUpgrade",
+      "lines": [950, 965],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "DefaultUpgrade contract"
+    },
+    "rollup_da_validator_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployRollupL1DAValidator",
+      "lines": [1000, 1015],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "RollupL1DAValidator for rollup mode"
+    },
+    "validium_da_validator_deploy": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL1.s.sol",
+      "function": "deployValidiumL1DAValidator",
+      "lines": [1020, 1035],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL1.s.sol/*/run-*.json",
+      "notes": "ValidiumL1DAValidator for validium mode"
+    },
+    "accept_bridgehub_ownership": {
+      "file": "contracts/l1-contracts/deploy-scripts/AdminFunctions.s.sol",
+      "function": "governanceAcceptOwner",
+      "lines": [50, 70],
+      "broadcast": "contracts/l1-contracts/broadcast/AdminFunctions.s.sol/*/run-*.json",
+      "notes": "Governor accepts ownership via Governance contract",
+      "rust_caller": "crates/zkstack/src/admin_functions.rs:accept_owner"
+    },
+    "accept_bridgehub_admin": {
+      "file": "contracts/l1-contracts/deploy-scripts/AdminFunctions.s.sol",
+      "function": "chainAdminAcceptAdmin",
+      "lines": [75, 95],
+      "broadcast": "contracts/l1-contracts/broadcast/AdminFunctions.s.sol/*/run-*.json",
+      "notes": "ChainAdmin accepts admin role",
+      "rust_caller": "crates/zkstack/src/admin_functions.rs:accept_admin"
+    }
+  },
+  "init_manifest": {
+    "fund_governor": {
+      "file": "crates/zkstack/src/commands/chain/common.rs",
+      "function": "distribute_eth",
+      "lines": [15, 45],
+      "notes": "Funds wallets with ETH on Localhost network only"
+    },
+    "mint_base_token_to_governor": {
+      "file": "crates/zkstack/src/commands/chain/common.rs",
+      "function": "mint_base_token",
+      "lines": [50, 85],
+      "notes": "Mints custom base token to wallets (if base_token != ETH)"
+    },
+    "register_zk_chain": {
+      "file": "contracts/l1-contracts/deploy-scripts/RegisterZKChain.s.sol",
+      "function": "run",
+      "lines": [100, 250],
+      "broadcast": "contracts/l1-contracts/broadcast/RegisterZKChain.s.sol/*/run-*.json",
+      "notes": "Registers chain with Bridgehub, deploys DiamondProxy",
+      "rust_caller": "crates/zkstack/src/commands/chain/register_chain.rs:register_chain",
+      "config_input": "crates/config/src/forge_interface/register_chain/input.rs",
+      "config_output": "crates/config/src/forge_interface/register_chain/output.rs"
+    },
+    "accept_diamond_proxy_admin": {
+      "file": "contracts/l1-contracts/deploy-scripts/AdminFunctions.s.sol",
+      "function": "chainAdminAcceptAdmin",
+      "lines": [75, 95],
+      "broadcast": "contracts/l1-contracts/broadcast/AdminFunctions.s.sol/*/run-*.json",
+      "notes": "Governor accepts admin for DiamondProxy via ChainAdmin",
+      "rust_caller": "crates/zkstack/src/admin_functions.rs:accept_admin"
+    },
+    "set_token_multiplier_setter": {
+      "file": "crates/zkstack/src/commands/chain/set_token_multiplier_setter.rs",
+      "function": "set_token_multiplier_setter",
+      "lines": [20, 75],
+      "notes": "Sets token multiplier setter address for custom base tokens",
+      "solidity_function": "AccessControlRestriction.setTokenMultiplierSetter"
+    },
+    "enable_evm_emulator": {
+      "file": "contracts/l1-contracts/deploy-scripts/EnableEvmEmulator.s.sol",
+      "function": "run",
+      "lines": [30, 60],
+      "broadcast": "contracts/l1-contracts/broadcast/EnableEvmEmulator.s.sol/*/run-*.json",
+      "notes": "Enables EVM emulator mode on chain",
+      "rust_caller": "crates/zkstack/src/enable_evm_emulator.rs:enable_evm_emulator"
+    },
+    "deploy_l2_default_upgrader": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL2Contracts.sol",
+      "function": "deployL2DefaultUpgrader",
+      "lines": [100, 150],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL2Contracts.sol/*/run-*.json",
+      "notes": "Force-deploys L2DefaultUpgrader via L1->L2 transaction",
+      "rust_caller": "crates/zkstack/src/commands/chain/deploy_l2_contracts/mod.rs"
+    },
+    "deploy_l2_da_validator": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL2Contracts.sol",
+      "function": "deployL2DAValidator",
+      "lines": [155, 200],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL2Contracts.sol/*/run-*.json",
+      "notes": "Force-deploys L2DAValidator via L1->L2 transaction",
+      "rust_caller": "crates/zkstack/src/commands/chain/deploy_l2_contracts/mod.rs"
+    },
+    "initialize_l2_asset_router": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL2Contracts.sol",
+      "function": "initializeL2AssetRouter",
+      "lines": [205, 240],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL2Contracts.sol/*/run-*.json",
+      "notes": "Initializes predeployed L2AssetRouter at 0x10003",
+      "rust_caller": "crates/zkstack/src/commands/chain/deploy_l2_contracts/mod.rs"
+    },
+    "initialize_l2_native_token_vault": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployL2Contracts.sol",
+      "function": "initializeL2NativeTokenVault",
+      "lines": [245, 280],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployL2Contracts.sol/*/run-*.json",
+      "notes": "Initializes predeployed L2NativeTokenVault at 0x10004",
+      "rust_caller": "crates/zkstack/src/commands/chain/deploy_l2_contracts/mod.rs"
+    },
+    "set_da_validator_pair": {
+      "file": "contracts/l1-contracts/deploy-scripts/AdminFunctions.s.sol",
+      "function": "setDAValidatorPair",
+      "lines": [100, 130],
+      "broadcast": "contracts/l1-contracts/broadcast/AdminFunctions.s.sol/*/run-*.json",
+      "notes": "Links L1 and L2 DA validators",
+      "rust_caller": "crates/zkstack/src/admin_functions.rs:set_da_validator_pair"
+    },
+    "make_permanent_rollup": {
+      "file": "contracts/l1-contracts/deploy-scripts/AdminFunctions.s.sol",
+      "function": "makePermanentRollup",
+      "lines": [135, 160],
+      "broadcast": "contracts/l1-contracts/broadcast/AdminFunctions.s.sol/*/run-*.json",
+      "notes": "Makes chain a permanent rollup (prevents validium migration)",
+      "rust_caller": "crates/zkstack/src/admin_functions.rs:make_permanent_rollup"
+    },
+    "setup_legacy_bridge": {
+      "file": "contracts/l1-contracts/deploy-scripts/dev/SetupLegacyBridge.s.sol",
+      "function": "run",
+      "lines": [50, 100],
+      "broadcast": "contracts/l1-contracts/broadcast/SetupLegacyBridge.s.sol/*/run-*.json",
+      "notes": "Sets up legacy bridge (deprecated, for backwards compatibility)",
+      "rust_caller": "crates/zkstack/src/commands/chain/setup_legacy_bridge.rs"
+    },
+    "deploy_testnet_paymaster": {
+      "file": "contracts/l1-contracts/deploy-scripts/DeployPaymaster.s.sol",
+      "function": "run",
+      "lines": [30, 80],
+      "broadcast": "contracts/l1-contracts/broadcast/DeployPaymaster.s.sol/*/run-*.json",
+      "notes": "Deploys testnet paymaster for development",
+      "rust_caller": "crates/zkstack/src/commands/chain/deploy_paymaster.rs:deploy_paymaster"
+    },
+    "generate_genesis": {
+      "file": "crates/zkstack/src/commands/chain/genesis/mod.rs",
+      "function": "genesis",
+      "lines": [50, 200],
+      "notes": "Generates genesis block and initializes chain database",
+      "binary": "zkstack chain genesis"
+    }
+  },
+  "script_output_locations": {
+    "deploy_l1_output": "contracts/l1-contracts/script-out/output-deploy-l1.toml",
+    "register_chain_output": "contracts/l1-contracts/script-out/output-register-zk-chain.toml",
+    "deploy_l2_contracts_output": "contracts/l1-contracts/script-out/output-deploy-l2-contracts.toml",
+    "deploy_paymaster_output": "contracts/l1-contracts/script-out/output-deploy-paymaster.toml",
+    "admin_functions_output": "contracts/l1-contracts/script-out/output-admin-functions.toml"
+  },
+  "config_file_mappings": {
+    "contracts_config": "configs/contracts.yaml",
+    "wallets_config": "configs/wallets.yaml",
+    "genesis_config": "configs/genesis.yaml",
+    "general_config": "configs/general.yaml",
+    "initial_deployments": "configs/initial_deployments.yaml",
+    "chain_contracts": "chains/<chain-name>/configs/contracts.yaml",
+    "chain_genesis": "chains/<chain-name>/configs/genesis.yaml"
+  },
+  "rust_implementation_paths": {
+    "ecosystem_init": "crates/zkstack/src/commands/ecosystem/init.rs",
+    "chain_init": "crates/zkstack/src/commands/chain/init/mod.rs",
+    "deploy_l1": "crates/zkstack/src/commands/ecosystem/common.rs:deploy_l1",
+    "register_chain": "crates/zkstack/src/commands/chain/register_chain.rs",
+    "deploy_l2_contracts": "crates/zkstack/src/commands/chain/deploy_l2_contracts/mod.rs",
+    "admin_functions": "crates/zkstack/src/admin_functions.rs",
+    "genesis": "crates/zkstack/src/commands/chain/genesis/mod.rs",
+    "contracts_config": "crates/config/src/contracts.rs",
+    "forge_interface": "crates/config/src/forge_interface/",
+    "script_params": "crates/config/src/forge_interface/script_params.rs"
+  }
+}
